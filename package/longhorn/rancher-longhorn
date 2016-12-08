@@ -9,9 +9,6 @@ fi
 
 init()
 {
-    if ! mount --rbind /host/dev /dev; then
-        print_error "Couldn't mount /dev"
-    fi
     print_success
 }
 
