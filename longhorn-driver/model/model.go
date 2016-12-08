@@ -1,7 +1,7 @@
 package model
 
 type Volume struct {
-	Name       string `json:"name"`
-	Mountpoint string
-	Opts       map[string]string
+	Name       string            `json:"name"`
+	Mountpoint string            `json:"mountpoint"`
+	Opts       map[string]string `json:"opts"`
 }

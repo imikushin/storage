@@ -6,17 +6,11 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 
-	"github.com/rancher/kubernetes-agent/healthcheck"
-
-	"github.com/rancher/storage/longhorn-driver/docker/volumeplugin"
+	"github.com/rancher/storage/longhorn-driver/driver"
 	"github.com/rancher/storage/longhorn-driver/storagepool"
 )
 
-const healthCheckPort = 10241
-
 func main() {
-	logrus.Info("Launching plugin")
-
 	app := cli.NewApp()
 	app.Name = "docker-longhorn-driver"
 	app.Version = "0.1.0"
@@ -55,13 +49,10 @@ func main() {
 		},
 	}
 
-	commands := []cli.Command{volumeplugin.Command, storagepool.Command}
-	app.Commands = commands
+	app.Commands = []cli.Command{storagepool.Command, driver.Command}
 
-	go func() {
-		err := healthcheck.StartHealthCheck(healthCheckPort)
-		logrus.Fatalf("Error while running healthcheck [%v]", err)
-	}()
-	app.Run(os.Args)
+	if err := app.Run(os.Args); err != nil {
+		logrus.Fatalf("Error running longhorn driver: %v", err)
+	}
 
 }

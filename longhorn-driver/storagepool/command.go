@@ -4,10 +4,13 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 
+	"github.com/rancher/kubernetes-agent/healthcheck"
 	"github.com/rancher/storage/longhorn-driver/cattle"
 	"github.com/rancher/storage/longhorn-driver/cattleevents"
 	"github.com/rancher/storage/longhorn-driver/util"
 )
+
+const healthCheckPort = 10241
 
 var Command = cli.Command{
 	Name:   "storagepool",
@@ -16,6 +19,11 @@ var Command = cli.Command{
 }
 
 func start(c *cli.Context) {
+	go func() {
+		err := healthcheck.StartHealthCheck(healthCheckPort)
+		logrus.Fatalf("Error while running healthcheck [%v]", err)
+	}()
+
 	healthCheckInterval := c.GlobalInt("healthcheck-interval")
 
 	cattleURL := c.GlobalString("cattle-url")

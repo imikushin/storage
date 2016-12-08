@@ -9,8 +9,8 @@ fi
 
 init()
 {
-    if [ -e /dev/loop-control ]; then
-        modprobe loop
+    if ! mount --rbind /host/dev /dev; then
+        print_error "Couldn't mount /dev"
     fi
     print_success
 }
@@ -18,24 +18,35 @@ init()
 create()
 {
     # The OPTS variable will be populated from the input JSON as a map of key/values
-    if [ -z "${OPTS[size]}" ]; then
-        print_error "size is required"
+    if [ -z "${OPTS[name]}" ]; then
+        print_error "name is required"
     fi
-    UUID=$(</proc/sys/kernel/random/uuid)
-    dd if=/dev/zero of=${UUID}.img bs=1MB count=${OPTS[size]}
-    print_options volumeID ${UUID}
+    if ! ERROR=$(./longhorn-driver vol create '{"name":"'"${OPTS[name]}"'","opts":'"${1}"'}' 2>&1); then
+        print_error "${ERROR}"
+    fi
+    print_options created true name ${OPTS[name]}
 }
 
 delete()
 {
     # The OPTS variable will be populated from the input JSON as a map of key/values
-    rm -f ${OPTS[volumeID]}.img
+    if [ -z "${OPTS[name]}" ]; then
+        print_error "name is required"
+    fi
+    if ! ERROR=$(./longhorn-driver vol delete '{"name":"'"${OPTS[name]}"'","opts":'"${1}"'}' 2>&1); then
+        print_error "${ERROR}"
+    fi
     print_success
 }
 
 attach()
 {
     # The OPTS variable will be populated from the input JSON as a map of key/values
+    if [ -z "${OPTS[name]}" ]; then
+        print_error "name is required"
+    fi
+
+    # FIXME the following is from example
     IMG=${OPTS[volumeID]}.img
     if [ ! -e "${IMG}" ]; then
         print_error "Failed to find ${IMG}"
