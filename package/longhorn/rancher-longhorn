@@ -7,6 +7,12 @@ elif [ -e "$(dirname $0)/../common/common.sh" ]; then
     source $(dirname $0)/../common/common.sh
 fi
 
+error_file=$(mktemp)
+cleanup() {
+    rm -rf ${error_file}
+}
+trap cleanup EXIT
+
 init()
 {
     print_success
@@ -18,8 +24,8 @@ create()
     if [ -z "${OPTS[name]}" ]; then
         print_error "name is required"
     fi
-    if ! ERROR=$(./longhorn-driver vol create '{"name":"'"${OPTS[name]}"'","opts":'"${1}"'}' 2>&1); then
-        print_error "${ERROR}"
+    if ! OUT=$($(dirname $0)/longhorn-driver vol create '{"name":"'"${OPTS[name]}"'","opts":'"${1}"'}' 2>${error_file}); then
+        print_error "$(<error_file)"
     fi
     print_options created true name ${OPTS[name]}
 }
@@ -30,8 +36,8 @@ delete()
     if [ -z "${OPTS[name]}" ]; then
         print_error "name is required"
     fi
-    if ! ERROR=$(./longhorn-driver vol delete '{"name":"'"${OPTS[name]}"'","opts":'"${1}"'}' 2>&1); then
-        print_error "${ERROR}"
+    if ! OUT=$($(dirname $0)/longhorn-driver vol delete "${OPTS[name]}" 2>${error_file}); then
+        print_error "$(<error_file)"
     fi
     print_success
 }
@@ -42,22 +48,19 @@ attach()
     if [ -z "${OPTS[name]}" ]; then
         print_error "name is required"
     fi
-
-    # FIXME the following is from example
-    IMG=${OPTS[volumeID]}.img
-    if [ ! -e "${IMG}" ]; then
-        print_error "Failed to find ${IMG}"
+    if ! OUT=$($(dirname $0)/longhorn-driver vol attach "${OPTS[name]}" 2>${error_file}); then
+        print_error "$(<error_file)"
     fi
 
-    DEVICE=$(losetup --show -f ${IMG})
-
-    print_device $DEVICE
+    print_device ${OUT}
 }
 
 detach()
 {
     # ${DEVICE} will be set with the device that should be detached
-    losetup -d ${DEVICE}
+    if ! OUT=$($(dirname $0)/longhorn-driver vol detach "${DEVICE}" 2>${error_file}); then
+        print_error "$(<error_file)"
+    fi
     print_success
 }
 
@@ -66,13 +69,21 @@ mountdest()
     # ${MNT_DEST} will be set with the directory where the filesystem should be mounted
     # ${DEVICE} will be the device returned from attach, if any
     # ${OPTS} will be populated with the options from the JSON input
-    print_not_supported
+    if ! OUT=$($(dirname $0)/longhorn-driver vol mountdest '{"opts":'"${1}"'}' "${MNT_DEST}" "${DEVICE}" 2>${error_file}); then
+        print_error "$(<error_file)"
+    fi
+
+    print_success
 }
 
 unmount()
 {
     # ${MNT_DEST} will be set with the directory from which the filesystem should be unmounted
-    print_not_supported
+    if ! OUT=$($(dirname $0)/longhorn-driver vol unmount "${MNT_DEST}" 2>${error_file}); then
+        print_error "$(<error_file)"
+    fi
+
+    print_success
 }
 
 # Every script must call main as such

@@ -72,6 +72,18 @@ func volume(c *cli.Context) *model.Volume {
 	return v
 }
 
+func arg1(c *cli.Context) string {
+	return c.Args().First()
+}
+
+func args(c *cli.Context) []string {
+	a1 := c.Args().First()
+	if a1 == "" {
+		return []string{}
+	}
+	return append([]string{a1}, c.Args().Tail()...)
+}
+
 func logVolumeError(_ *model.Volume, err error) {
 	logError(err)
 }
@@ -88,17 +100,21 @@ func Create(c *cli.Context) {
 }
 
 func Delete(c *cli.Context) {
-	logError(storageDaemon(c).Delete(volume(c).Name, true))
+	logError(storageDaemon(c).Delete(arg1(c), true))
 }
 
 func Attach(c *cli.Context) {
+	logVolumeError(storageDaemon(c).Mount(arg1(c))) // TODO extract Attach from Mount
 }
 
 func Detach(c *cli.Context) {
+	logError(storageDaemon(c).Unmount(arg1(c))) // TODO extract Detach from Unmount
 }
 
 func Mountdest(c *cli.Context) {
+	logVolumeError(storageDaemon(c).Mount(args(c))) // TODO MountDest
 }
 
 func Unmount(c *cli.Context) {
+	logError(storageDaemon(c).Unmount(arg1(c))) // TODO UnmountDest
 }
