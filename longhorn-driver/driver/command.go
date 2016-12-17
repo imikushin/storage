@@ -1,12 +1,11 @@
 package driver
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-
 	rancherClient "github.com/rancher/go-rancher/client"
-
-	"encoding/json"
 	"github.com/rancher/storage/longhorn-driver/model"
 	"github.com/rancher/storage/longhorn-driver/util"
 	"os"
@@ -32,12 +31,6 @@ var Command = cli.Command{
 	}, {
 		Name:   "detach",
 		Action: Detach,
-	}, {
-		Name:   "mountdest",
-		Action: Mountdest,
-	}, {
-		Name:   "unmount",
-		Action: Unmount,
 	}},
 }
 
@@ -76,45 +69,38 @@ func arg1(c *cli.Context) string {
 	return c.Args().First()
 }
 
-func args(c *cli.Context) []string {
-	a1 := c.Args().First()
-	if a1 == "" {
-		return []string{}
+func printVolumeErr(_ *model.Volume, err error) {
+	printErr(err)
+}
+
+func printResultErr(result string, err error) {
+	if _, err := fmt.Fprintln(os.Stdout, result); err != nil {
+		logrus.Fatalf("Could not even print to stdout: %s", err)
 	}
-	return append([]string{a1}, c.Args().Tail()...)
+	printErr(err)
 }
 
-func logVolumeError(_ *model.Volume, err error) {
-	logError(err)
-}
-
-func logError(err error) {
+func printErr(err error) {
 	if err != nil {
-		println(err)
+		if _, err := fmt.Fprintln(os.Stderr, err); err != nil {
+			logrus.Fatalf("Could not even print to stderr: %s", err)
+		}
 		os.Exit(1)
 	}
 }
 
 func Create(c *cli.Context) {
-	logVolumeError(storageDaemon(c).Create(volume(c)))
+	printVolumeErr(storageDaemon(c).Create(volume(c)))
 }
 
 func Delete(c *cli.Context) {
-	logError(storageDaemon(c).Delete(arg1(c), true))
+	printErr(storageDaemon(c).Delete(arg1(c), true))
 }
 
 func Attach(c *cli.Context) {
-	logVolumeError(storageDaemon(c).Mount(arg1(c))) // TODO extract Attach from Mount
+	printResultErr(storageDaemon(c).Attach(arg1(c)))
 }
 
 func Detach(c *cli.Context) {
-	logError(storageDaemon(c).Unmount(arg1(c))) // TODO extract Detach from Unmount
-}
-
-func Mountdest(c *cli.Context) {
-	logVolumeError(storageDaemon(c).Mount(args(c))) // TODO MountDest
-}
-
-func Unmount(c *cli.Context) {
-	logError(storageDaemon(c).Unmount(arg1(c))) // TODO UnmountDest
+	// TODO looks like it is not necessary
 }

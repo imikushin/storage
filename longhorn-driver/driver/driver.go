@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/gorilla/mux"
 	"github.com/mitchellh/mapstructure"
 
 	md "github.com/rancher/go-rancher-metadata/metadata"
@@ -27,10 +25,7 @@ import (
 const (
 	root                = "/var/lib/rancher/longhorn"
 	mountsDir           = "mounts"
-	fakeMountsDir       = "fake-mounts"
 	localCacheDir       = "localcache"
-	mountBin            = "mount"
-	umountBin           = "umount"
 	rancherMetadataURL  = "http://rancher-metadata/2015-12-19"
 	defaultVolumeSize   = "10g"
 	optSize             = "size"
@@ -87,46 +82,6 @@ type StorageDaemon struct {
 	rootDir             string
 }
 
-func (d *StorageDaemon) ListenAndServe() error {
-	dh := &deleteHandler{
-		daemon: d,
-	}
-	router := mux.NewRouter().StrictSlash(true)
-	router.Methods("DELETE").Path("/v1/volumes/{name}").Handler(dh)
-	return http.ListenAndServe(":80", router)
-}
-
-type deleteHandler struct {
-	daemon *StorageDaemon
-}
-
-func (h *deleteHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	name := vars["name"]
-	err := h.daemon.Delete(name, true)
-	if err != nil {
-		logrus.Errorf("Error deleting volume %v: %v", name, err)
-		rw.WriteHeader(http.StatusInternalServerError)
-		rw.Write([]byte(err.Error()))
-	}
-}
-
-func (d *StorageDaemon) List() ([]*model.Volume, error) {
-	return d.store.list()
-}
-
-func (d *StorageDaemon) Get(name string) (*model.Volume, error) {
-	vol, _, moved, err := d.store.get(name)
-
-	if moved {
-		vol.Mountpoint = "moved"
-	} else {
-
-	}
-
-	return vol, err
-}
-
 func (d *StorageDaemon) Create(volume *model.Volume) (*model.Volume, error) {
 	logrus.Infof("Creating volume %v", volume)
 	d.store.create(volume.Name)
@@ -159,7 +114,7 @@ func (d *StorageDaemon) Create(volume *model.Volume) (*model.Volume, error) {
 	stack := newStack(volume.Name, d.driverContainerName, d.driverName, d.volumeStackImage, volConfig, d.client)
 
 	if err := d.doCreateVolume(volume, stack); err != nil {
-		d.store.delete(volume.Name)
+		d.store.remove(volume.Name)
 		stack.delete()
 		return nil, fmt.Errorf("Error creating Rancher stack for volume %v: %v.", volume.Name, err)
 	}
@@ -215,147 +170,31 @@ func (d *StorageDaemon) Delete(name string, removeStack bool) error {
 			return err
 		}
 	}
-	d.store.delete(name)
+	d.store.remove(name)
 	return nil
 }
 
-func (d *StorageDaemon) Mount(name string) (*model.Volume, error) {
-	logrus.Infof("Mounting volume %v", name)
-
-	vol, config, moved, err := d.store.get(name)
+func (d *StorageDaemon) Attach(name string) (string, error) {
+	logrus.Infof("Attaching volume %v", name)
+	vol, _, moved, err := d.store.get(name)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting volume: %v", err)
+		return "", fmt.Errorf("Error getting volume: %v", err)
 	}
 	if vol == nil {
-		return nil, fmt.Errorf("No such volume: %v", name)
+		return "", fmt.Errorf("No such volume: %v", name)
 	}
-
 	if moved {
-		return nil, fmt.Errorf("Volume %v no longer reside on this host and cannot be mounted.", name)
+		return "", fmt.Errorf("Volume %v no longer reside on this host and cannot be mounted.", name)
 	}
-
 	dev := getDevice(vol.Name)
-	if err != nil {
-		return nil, err
-	}
-
 	if err := waitForDevice(dev); err != nil {
-		return nil, err
-	}
-
-	var mp string
-	var e error
-	if config.DontFormat {
-		logrus.Infof("Creating fake mount directory for %v because dont-format option was specified.", vol.Name)
-		mp = fakeMountPoint(d.rootDir, vol.Name)
-		if err := os.MkdirAll(mp, 0744); err != nil {
-			return nil, err
-		}
-	} else {
-		mp, e = d.volumeMount(vol)
-		if e != nil {
-			return nil, e
-		}
-	}
-
-	vol.Mountpoint = mp
-	return vol, nil
-}
-
-func (d *StorageDaemon) Unmount(name string) error {
-	logrus.Infof("Unmounting volume %v", name)
-
-	vol, config, moved, err := d.store.get(name)
-	if err != nil {
-		return fmt.Errorf("Error getting volume %v for unmount: %v.", vol, err)
-	}
-
-	// If volume doesn't exist or has been moved, just no-op and return successfully
-	if vol == nil || moved {
-		logrus.Infof("Umount called on a nonexistent or moved volume %v. No-op.", vol.Name)
-		return nil
-	}
-
-	if config.DontFormat {
-		logrus.Infof("Remvoing fake mount dir for %v because dont-format option was specified.", name)
-		mp := fakeMountPoint(d.rootDir, name)
-		if err := os.Remove(mp); err != nil {
-			logrus.Warnf("Cannot cleanup fake mount point directory %v due to %v.", mp, err)
-		}
-		return nil
-	}
-
-	mountPoint := mountPoint(d.rootDir, vol.Name)
-	if mountPoint == "" {
-		logrus.Infof("Umount called on umounted volume %v.", vol.Name)
-		return nil
-	}
-
-	if _, err := callUmount([]string{mountPoint}); err != nil {
-		return err
-	}
-
-	if err := os.Remove(mountPoint); err != nil {
-		logrus.Warnf("Cannot cleanup mount point directory %v due to %v.", mountPoint, err)
-	}
-
-	return nil
-}
-
-func (d *StorageDaemon) volumeMount(volume *model.Volume) (string, error) {
-	dev := getDevice(volume.Name)
-
-	mountPoint := mountPoint(d.rootDir, volume.Name)
-	if err := os.MkdirAll(mountPoint, 0744); err != nil {
 		return "", err
 	}
-
-	if !isMounted(mountPoint) {
-		logrus.Infof("Mounting volume %v to %v.", volume.Name, mountPoint)
-		_, err := callMount([]string{dev, mountPoint})
-		if err != nil {
-			return "", err
-		}
-	}
-	return mountPoint, nil
-}
-
-func callUmount(cmdArgs []string) (string, error) {
-	output, err := util.Execute(umountBin, cmdArgs)
-	if err != nil {
-		return "", err
-	}
-	return output, nil
-}
-
-func callMount(cmdArgs []string) (string, error) {
-	output, err := util.Execute(mountBin, cmdArgs)
-	if err != nil {
-		return "", err
-	}
-	return output, nil
-}
-
-func isMounted(mountPoint string) bool {
-	output, err := callMount([]string{})
-	if err != nil {
-		return false
-	}
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		if strings.Contains(line, mountPoint) {
-			return true
-		}
-	}
-	return false
+	return dev, nil
 }
 
 func mountPoint(rootDir, volumeName string) string {
 	return filepath.Join(rootDir, mountsDir, volumeName)
-}
-
-func fakeMountPoint(rootDir, volumeName string) string {
-	return filepath.Join(rootDir, fakeMountsDir, volumeName)
 }
 
 func getDevice(volumeName string) string {
@@ -389,7 +228,7 @@ func (s *volumeStore) create(name string) error {
 	return nil
 }
 
-func (s *volumeStore) delete(name string) error {
+func (s *volumeStore) remove(name string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
