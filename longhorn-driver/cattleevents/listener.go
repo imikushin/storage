@@ -89,7 +89,7 @@ func decodeEvent(event *revents.Event, key string, target interface{}) error {
 		err := mapstructure.Decode(s, target)
 		return err
 	}
-	return fmt.Errorf("Event doesn't contain %v data. Event: %#v.", key, event)
+	return fmt.Errorf("Event doesn't contain %v data. Event: %#v", key, event)
 }
 
 type processData struct {

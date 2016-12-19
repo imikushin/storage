@@ -8,10 +8,10 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/rancher/storage/longhorn-driver/driver"
-	"github.com/rancher/storage/longhorn-driver/util"
 	revents "github.com/rancher/go-machine-service/events"
 	"github.com/rancher/go-rancher/client"
+	"github.com/rancher/storage/longhorn-driver/driver"
+	"github.com/rancher/storage/longhorn-driver/util"
 	"time"
 )
 

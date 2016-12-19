@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rancher/storage/longhorn-driver/util"
 	rancherClient "github.com/rancher/go-rancher/client"
+	"github.com/rancher/storage/longhorn-driver/util"
 )
 
 func WaitFor(client *rancherClient.RancherClient, resource *rancherClient.Resource, output interface{}, transitioning func() string) error {

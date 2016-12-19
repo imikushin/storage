@@ -5,9 +5,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/mapstructure"
-	"github.com/rancher/storage/longhorn-driver/util"
 	revents "github.com/rancher/go-machine-service/events"
 	"github.com/rancher/go-rancher/client"
+	"github.com/rancher/storage/longhorn-driver/util"
 	"strings"
 	"time"
 )
@@ -93,7 +93,7 @@ func (h *backupHandlers) decodeEventBackup(event *revents.Event) (*eventBackup, 
 		err := mapstructure.Decode(s, backup)
 		return backup, err
 	}
-	return nil, fmt.Errorf("Event doesn't contain backup data. Event: %#v.", event)
+	return nil, fmt.Errorf("Event doesn't contain backup data. Event: %#v", event)
 }
 
 func newBackupTarget(backup *eventBackup) backupTarget {

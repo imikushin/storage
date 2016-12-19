@@ -116,7 +116,7 @@ func (d *StorageDaemon) Create(volume *model.Volume) (*model.Volume, error) {
 	if err := d.doCreateVolume(volume, stack); err != nil {
 		d.store.remove(volume.Name)
 		stack.delete()
-		return nil, fmt.Errorf("Error creating Rancher stack for volume %v: %v.", volume.Name, err)
+		return nil, fmt.Errorf("Error creating Rancher stack for volume %v: %v", volume.Name, err)
 	}
 
 	logrus.Infof("Successfully created volume %v.", volume.Name)
@@ -184,7 +184,7 @@ func (d *StorageDaemon) Attach(name string) (string, error) {
 		return "", fmt.Errorf("No such volume: %v", name)
 	}
 	if moved {
-		return "", fmt.Errorf("Volume %v no longer reside on this host and cannot be mounted.", name)
+		return "", fmt.Errorf("Volume %v no longer reside on this host and cannot be mounted", name)
 	}
 	dev := getDevice(vol.Name)
 	if err := waitForDevice(dev); err != nil {

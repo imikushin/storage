@@ -4,8 +4,8 @@ import (
 	"errors"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/rancher/storage/longhorn-driver/util"
 	"github.com/rancher/go-rancher/client"
+	"github.com/rancher/storage/longhorn-driver/util"
 )
 
 type StoragePoolManager interface {

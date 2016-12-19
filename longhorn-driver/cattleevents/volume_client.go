@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/storage/longhorn-driver/util"
 	"github.com/rancher/go-rancher/client"
+	"github.com/rancher/storage/longhorn-driver/util"
 )
 
 func newVolumeClient(snapshot *eventSnapshot) *volumeClient {
@@ -30,7 +30,7 @@ type volumeClient struct {
 func (c *volumeClient) reloadStatus(s *status) (*status, error) {
 	self, ok := s.Links["self"]
 	if !ok {
-		return nil, fmt.Errorf("Status doesn't have self link.")
+		return nil, fmt.Errorf("Status doesn't have self link")
 	}
 
 	resp, err := http.Get(self)

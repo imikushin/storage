@@ -8,8 +8,8 @@ import (
 
 	"bytes"
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/storage/longhorn-driver/util"
 	rancherClient "github.com/rancher/go-rancher/client"
+	"github.com/rancher/storage/longhorn-driver/util"
 )
 
 const (
