@@ -11,17 +11,11 @@ import (
 	"os"
 )
 
-const (
-	NAME = "name"
-	SIZE = "size"
-)
-
 var Command = cli.Command{
 	Name: "vol",
 	Subcommands: []cli.Command{{
 		Name:   "create",
 		Action: Create,
-		Flags:  []cli.Flag{cli.StringFlag{Name: NAME}, cli.IntFlag{Name: SIZE}},
 	}, {
 		Name:   "delete",
 		Action: Delete,
