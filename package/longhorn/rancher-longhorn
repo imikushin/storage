@@ -24,7 +24,7 @@ create()
     if [ -z "${OPTS[name]}" ]; then
         print_error "name is required"
     fi
-    if ! OUT=$($(dirname $0)/longhorn-driver vol create '{"name":"'"${OPTS[name]}"'","opts":'"${1}"'}' 2>${error_file}); then
+    if ! OUT=$(longhorn-orc vol create '{"name":"'"${OPTS[name]}"'","opts":'"${1}"'}' 2>${error_file}); then
         print_error "$(<error_file)"
     fi
     print_options created true name ${OPTS[name]}
@@ -36,7 +36,7 @@ delete()
     if [ -z "${OPTS[name]}" ]; then
         print_error "name is required"
     fi
-    if ! OUT=$($(dirname $0)/longhorn-driver vol delete "${OPTS[name]}" 2>${error_file}); then
+    if ! OUT=$(longhorn-orc vol delete "${OPTS[name]}" 2>${error_file}); then
         print_error "$(<error_file)"
     fi
     print_success
@@ -48,7 +48,7 @@ attach()
     if [ -z "${OPTS[name]}" ]; then
         print_error "name is required"
     fi
-    if ! OUT=$($(dirname $0)/longhorn-driver vol attach "${OPTS[name]}" 2>${error_file}); then
+    if ! OUT=$(longhorn-orc vol attach "${OPTS[name]}" 2>${error_file}); then
         print_error "$(<error_file)"
     fi
 
