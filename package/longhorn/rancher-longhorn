@@ -25,7 +25,7 @@ create()
         print_error "name is required"
     fi
     if ! OUT=$(longhorn-orc vol create '{"name":"'"${OPTS[name]}"'","opts":'"${1}"'}' 2>${error_file}); then
-        print_error "$(<error_file)"
+        print_error "$(<${error_file})"
     fi
     print_options created true name ${OPTS[name]}
 }
@@ -37,7 +37,7 @@ delete()
         print_error "name is required"
     fi
     if ! OUT=$(longhorn-orc vol delete "${OPTS[name]}" 2>${error_file}); then
-        print_error "$(<error_file)"
+        print_error "$(<${error_file})"
     fi
     print_success
 }
@@ -49,7 +49,7 @@ attach()
         print_error "name is required"
     fi
     if ! OUT=$(longhorn-orc vol attach "${OPTS[name]}" 2>${error_file}); then
-        print_error "$(<error_file)"
+        print_error "$(<${error_file})"
     fi
 
     print_device ${OUT}
@@ -68,7 +68,7 @@ mountdest()
     # ${DEVICE} will be the device returned from attach, if any
     # ${OPTS} will be populated with the options from the JSON input
     if ! OUT=$(mount "${DEVICE}" "${MNT_DEST}" 2>${error_file}); then
-        print_error "$(<error_file)"
+        print_error "$(<${error_file})"
     fi
     print_success
 }
@@ -78,7 +78,7 @@ unmount()
     # ${MNT_DEST} will be set with the directory from which the filesystem should be unmounted
     if ! OUT=$(umount "${MNT_DEST}" 2>${error_file}); then
         local err
-        err=$(<error_file)
+        err=$(<${error_file})
         if [ "$(echo ${err} | grep 'not mounted')" ]; then
             print_success "not mounted"
         elif [ "$(echo ${err} | grep 'mountpoint not found')" ]; then
