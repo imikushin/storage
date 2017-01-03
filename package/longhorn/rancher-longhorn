@@ -58,7 +58,9 @@ attach()
 detach()
 {
     # ${DEVICE} will be set with the device that should be detached
-    # TODO looks like there's nothing to do here
+    if ! OUT=$(longhorn-orc vol detach "${DEVICE}" 2>${error_file}); then
+        print_error "$(<${error_file})"
+    fi
     print_success
 }
 
