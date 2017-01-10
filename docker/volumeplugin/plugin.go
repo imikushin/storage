@@ -50,6 +50,7 @@ func NewRancherStorageDriver(driver string, client *client.RancherClient, cli *d
 		mounter:         &mount.SafeFormatAndMount{Interface: mount.New(), Runner: exec.New()},
 		FsType:          DefaultFsType,
 		cli:             cli,
+		devices:         map[string]string{},
 	}
 	if err := d.init(); err != nil {
 		return nil, errors.Wrap(err, "Failed to initialize")
@@ -70,6 +71,7 @@ type RancherStorageDriver struct {
 	mounter         *mount.SafeFormatAndMount
 	FsType          string
 	cli             *dockerClient.Client
+	devices         map[string]string
 	mountLock       sync.Mutex
 }
 
@@ -177,6 +179,35 @@ func (d *RancherStorageDriver) isMounted(path string) (bool, error) {
 	return false, nil
 }
 
+func (d *RancherStorageDriver) Attach(request AttachRequest) volume.Response {
+	d.mountLock.Lock()
+	defer d.mountLock.Unlock()
+
+	logrus.WithFields(logrus.Fields{
+		"name": request.Name,
+	}).Info("attach.request")
+
+	response := volume.Response{}
+	defer logResponse("attach", &response)
+
+	_, rVol, err := d.state.Get(request.Name)
+	if err != nil {
+		response.Err = err.Error()
+		return response
+	}
+
+	opts := toArgs(request.Name, getOptions(rVol))
+	cmdOutput, err := d.exec("attach", opts)
+	if err != nil && err != errNotSupported {
+		logrus.Errorf("Failed to attach %s: %v", request.Name, err)
+		response.Err = err.Error()
+		return response
+	}
+	d.devices[request.Name] = cmdOutput.Device
+
+	return response
+}
+
 func (d *RancherStorageDriver) Mount(request volume.MountRequest) volume.Response {
 	d.mountLock.Lock()
 	defer d.mountLock.Unlock()
@@ -205,15 +236,13 @@ func (d *RancherStorageDriver) Mount(request volume.MountRequest) volume.Respons
 	}
 
 	opts := toArgs(request.Name, getOptions(rVol))
-	cmdOutput, err := d.exec("attach", opts)
-	if err != nil && err != errNotSupported {
-		logrus.Errorf("Failed to attach %s: %v", request.Name, err)
-		response.Err = err.Error()
+	os.MkdirAll(mntDest, 0750)
+	device, ok := d.devices[request.Name]
+	if !ok {
+		response.Err = errors.New("mount: volume not attached").Error()
 		return response
 	}
-
-	os.MkdirAll(mntDest, 0750)
-	if _, err := d.exec("mount", mntDest, cmdOutput.Device, opts); err != nil {
+	if _, err := d.exec("mount", mntDest, device, opts); err != nil {
 		logrus.Errorf("Failed to mount %s: %v", request.Name, err)
 		response.Err = err.Error()
 		return response
@@ -232,6 +261,32 @@ func (d *RancherStorageDriver) getFsType(vol *client.Volume) string {
 		fsType = d.FsType
 	}
 	return fsType
+}
+
+func (d *RancherStorageDriver) Detach(request DetachRequest) volume.Response {
+	d.mountLock.Lock()
+	defer d.mountLock.Unlock()
+
+	logrus.WithFields(logrus.Fields{
+		"name": request.Name,
+	}).Info("detach.request")
+
+	response := volume.Response{}
+	defer logResponse("detach", &response)
+
+	device, ok := d.devices[request.Name]
+	if !ok {
+		response.Err = errors.New("detach: not been attached").Error()
+		return response
+	}
+	if _, err := d.exec("detach", device); err != nil && err != errNotSupported {
+		logrus.Errorf("Failed to detach %s: %v", request.Name, err)
+		response.Err = err.Error()
+		return response
+	}
+	delete(d.devices, request.Name)
+
+	return response
 }
 
 func (d *RancherStorageDriver) Unmount(request volume.UnmountRequest) volume.Response {
